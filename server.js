@@ -26,6 +26,12 @@
   // For websocket
   const WebSocket = require('ws');
 
+  // For requests to api
+  const axios = require('axios');
+
+  // For middleware
+  const router = express.Router();
+
   // Openning a websocket server
   const wss = new WebSocket.Server({port: 3001});
   wss.on('connection', function connection(ws) {
@@ -44,7 +50,7 @@
   app.get('/', (request, response) => {
     response.send(`
     Шаблон
-    <select id="template">
+    <select id="template_id">
       <option value="1">1</option>
       <option value="2">2</option>
     </select>
@@ -57,10 +63,10 @@
     <script>
       
       function send() {
-        const template = document.getElementById('template').value;
+        const template_id = document.getElementById('template_id').value;
         const reference = document.getElementById('reference').value;
         const verse = document.getElementById('verse').value;
-        console.log(template, reference, verse);
+        console.log(template_id, reference, verse);
         
         fetch('/', {
           method: 'POST',
@@ -69,7 +75,7 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            template: template,
+            template_id: template_id,
             reference: reference,
             verse: verse
           })
@@ -80,34 +86,43 @@
   `);
   });
 
-  app.post('/', (request, response) => {
+  router.use('/', (request, response, next) => {
+    axios.get(`http://${ip.address()}:3000/api/templates/${request.body.template_id}`)
+      .then(response => {
+        console.log(response.data);
+        // Return template
+        request.template = response.data.template;
+        next();
+      })
+      .catch((error) => {
+        // handle error
+        console.log(error);
+      });
+  });
+
+  app.post('/', router, (request, response) => {
 
     const ws = new WebSocket(`ws://${ip.address()}:3001/`);
 
-    console.log(request.body);
+    console.log('request.body ->', request.body);
+    console.log('request.template ->', request.template);
 
-    const template = request.body.template;
+    // Get template from middleware
+    const template = request.template;
+
+    // Get reference and verse from request
     const reference = request.body.reference;
     const verse = request.body.verse;
 
-    // console.log(html);
-
-    // Change template by id
+    ws.onopen = function () {
+      console.log('connection established');
+      // Send rendered template with all to client
+      ws.send(ejs.render(template, {reference: reference, verse: verse}));
+    };
 
     ws.onerror = function (err) {
       console.error('failed to make websocket connection');
       throw err;
-    };
-
-    ws.onopen = function () {
-
-      const templates = [
-        '<p id="reference"><%= reference %></p><p><%= verse %></p>',
-        '<p id="verse"><%= reference %></p><h1><%= verse %></h1>'
-      ];
-
-      console.log('connection established');
-      ws.send(ejs.render(templates[template - 1], {reference: reference, verse: verse}));
     };
 
     response.status(404).send("Sorry can't find that!");
@@ -143,11 +158,18 @@
   low(adapter)
     .then(db => {
 
-      // Api
+      // Book
       app.get('/api/books/:id', (request, response) => {
         const BookId = Number(request.params.id);
         const book = db.get('Books').find({BookId: BookId}).value();
         // console.log(book);
+        response.json(book);
+      });
+
+      // Template
+      app.get('/api/templates/:id', (request, response) => {
+        const id = Number(request.params.id);
+        const book = db.get('templates').find({template_id: id}).value();
         response.json(book);
       });
 

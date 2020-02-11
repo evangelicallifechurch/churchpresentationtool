@@ -4,3 +4,6 @@
 // `nodeIntegration` is turned off. Use `preload.js` to
 // selectively enable features needed in the rendering
 // process.
+// In renderer process (web page).
+const { ipcRenderer } = require('electron');
+ipcRenderer.send('asynchronous-message', 'ping');

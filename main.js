@@ -1,5 +1,7 @@
 // Modules to control application life and create native browser window
 const {app, BrowserWindow} = require('electron');
+const remote = require('electron').remote;
+const { ipcMain } = require('electron');
 const path = require('path');
 
 // Electron reload
@@ -9,7 +11,6 @@ const server = require('./server');
 
 // For ip address
 const ip = require('ip');
-
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -45,3 +46,23 @@ app.on('activate', function () {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+// ipcMain
+ipcMain.on('asynchronous-message', (event, arg) => {
+  console.log(event, arg); // prints "ping"
+
+  const externalWindow = new BrowserWindow({
+    width: 700,
+    height: 400,
+    allowRendererProcessReuse: true,
+    frame: false,
+    modal: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  externalWindow.loadURL(`file://${__dirname}/index.html`)
+
+  // event.reply('asynchronous-reply', 'pong')
+});
